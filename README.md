@@ -1,6 +1,6 @@
 # Mondrian Boogie Woogie Art Generator
 
-A Python tool that recreates Piet Mondrian's "Broadway Boogie Woogie" style by analyzing a reference image, extracting its dominant color palette, and remapping every pixel to the nearest palette color. Optionally adds Mondrian-inspired colored tiles on light regions and along detected grid lanes to evoke the rhythmic, jazz-influenced composition of the original artwork.
+A Python tool that recreates Piet Mondrian's "Broadway Boogie Woogie" style by analyzing a reference image, extracting its dominant color palette, and remapping every pixel to the nearest palette color. Always adds Mondrian-inspired colored tiles on light regions and along detected grid lanes to evoke the rhythmic, jazz-influenced composition of the original artwork.
 
 ## Features
 
@@ -10,7 +10,7 @@ A Python tool that recreates Piet Mondrian's "Broadway Boogie Woogie" style by a
 - **Lane Detection**: Identifies grid-like structures and places tile runs along detected lanes
 - **Diamond Masking**: Automatically detects and preserves the central diamond composition
 - **Color Weighting**: Biases tile placement toward specific colors (yellow, red, blue, black)
-- **Deterministic Mode**: Use seeds for reproducible results or random generation
+- **Deterministic Mode**: Uses seed for reproducible tile size, density, and placement patterns
 - **Light Region Masking**: Export a binary mask of light/white/gray regions for inspection or reuse
 
 ## Prerequisites
@@ -28,38 +28,16 @@ pip install Pillow
 
 ## Basic Usage
 
-### With Boogie Tiles (Deterministic Generation)
+### Windows Command
 
-Use a seed for **reproducible tile placement** (same output every time):
-
-```bash
-python mondrian_boogie_woogie.py \
-  --input art.JPG \
-  --output recreated.png \
-  --add-boogie-tiles \
-  --tile-size 150 \
-  --tile-density 0.38 \
-  --boogie-mask boogie_mask.png \
-  --tile-seed 12345 \
-  --light-mask light_mask.png
+```cmd
+python mondrian_boogie_woogie.py --input art.JPG --output recreated.png --tile-seed 12345
 ```
 
-**Note**: With `--tile-seed`, the same seed produces identical tile patterns for consistent, reproducible results.
-
-### With Lane Tiles
-
-Add tile runs along detected grid lines:
-
-```bash
-python mondrian_boogie_woogie.py \
-  --input art.JPG \
-  --output recreated.png \
-  --add-lane-tiles \
-  --tile-size 10 \
-  --lane-density 0.20 \
-  --lane-run-length 5 \
-  --lane-mask lane_mask.png
-```
+**Note**: 
+- Boogie tiles and lane tiles are **always enabled**
+- Tile size (140-150px) and tile density (0.38-0.50) are **randomly generated** by the RNG based on the seed
+- The `--tile-seed` parameter is **required** for reproducible tile size, density, and placement patterns
 
 ### Palette Extraction
 
@@ -68,26 +46,28 @@ python mondrian_boogie_woogie.py \
 | `--max-colors N` | Number of dominant colors to extract | 12 |
 | `--max-dim PX` | Resize longest side to this dimension | None |
 
-### Boogie Tiles
+### Boogie Tiles (Always Enabled)
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--add-boogie-tiles` | Enable clustered tile placement | False |
-| `--tile-size PX` | Side length of tiles in pixels | 10 |
-| `--tile-density FLOAT` | Probability of placing tiles (0-1) | 0.08 |
+| `--tile-size PX` | ~~Side length of tiles in pixels~~ | **Randomly generated (5-15px)** |
+| `--tile-density FLOAT` | ~~Probability of placing tiles (0-1)~~ | **Randomly generated (0.05-0.15)** |
 | `--tile-brightness-threshold N` | Min brightness for light background | 220 |
 | `--tile-gray-range N` | Max channel spread for gray detection | 25 |
-| `--tile-seed N` | Seed for deterministic placement (omit for random) | Random |
+| `--tile-seed N` | Seed for deterministic tile size, density, and placement (required) | Required |
 | `--boogie-mask PATH` | Save mask of painted boogie tiles | None |
 
-### Lane Tiles
+**Note**: Boogie tiles are always enabled. Tile size and density are automatically randomized by the RNG based on the seed. The chosen values are printed to the console.
+
+### Lane Tiles (Always Enabled)
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--add-lane-tiles` | Enable lane-following tile runs | False |
 | `--lane-density FLOAT` | Probability of starting lane run (0-1) | 0.20 |
 | `--lane-run-length N` | Nominal tiles per run (±1 variance) | 5 |
 | `--lane-mask PATH` | Save lane detection + placement mask | None |
+
+**Note**: Lane tiles are always enabled by default.
 
 ### Color Weighting
 
@@ -137,28 +117,20 @@ Automatically identifies the central painted region by detecting non-white conte
 ### 5. Color Biasing
 Tiles are not selected uniformly from the palette. Colors closer to yellow, red, blue, or black targets receive higher probability weights, which you can customize via command-line flags.
 
-## Random vs Deterministic Tile Generation
+## Tile Generation
 
-### Random Generation (Default)
-When **no seed** is provided, tile placement is completely random:
-- Each run produces different tile patterns
-- Great for exploring variations and finding interesting compositions
-- Use when you want artistic freedom and variety
-
-### Deterministic Generation (With Seed)
-When a **seed** is specified via `--tile-seed`:
-- Same seed always produces identical results
+The script uses a seeded random number generator to ensure reproducible results:
+- Tile size is randomly chosen (140-150 pixels) based on the seed
+- Tile density is randomly chosen (0.38-0.50) based on the seed
+- Tile placement patterns are determined by the seed
+- Same seed always produces identical tile size, density, and placement patterns
 - Perfect for reproducibility in production or testing
 - Allows you to "lock in" a pattern you like
 - Anyone with the same seed and parameters gets the same output
 
-**Example comparison:**
-```bash
-# Random - different each time
-python mondrian_boogie_woogie.py --input art.JPG --output random.png --add-boogie-tiles
-
-# Deterministic - always the same
-python mondrian_boogie_woogie.py --input art.JPG --output fixed.png --add-boogie-tiles --tile-seed 12345
+**Example:**
+```cmd
+python mondrian_boogie_woogie.py --input art.JPG --output recreated.png --tile-seed 12345
 ```
 
 ## Output Files
@@ -172,11 +144,9 @@ python mondrian_boogie_woogie.py --input art.JPG --output fixed.png --add-boogie
 ## Tips
 
 - Start with default parameters and adjust incrementally
-- Use `--tile-seed` when you want reproducible results for testing or production
-- Omit `--tile-seed` for random exploration and creative experimentation
-- Higher `--tile-density` creates busier, more energetic compositions
-- Larger `--tile-size` produces bolder, more visible tile patterns
-- Combine both tile modes for rich, layered effects
+- The `--tile-seed` parameter is required - use different seeds to explore different tile size/density combinations
+- Tile size (140-150px) and density (0.38-0.50) are randomly generated based on the seed - check console output to see chosen values
+- Boogie tiles and lane tiles are always enabled for rich, layered effects
 - Save masks to understand where tiles are being placed
 - Adjust color weights to match your artistic vision
 
@@ -185,5 +155,5 @@ python mondrian_boogie_woogie.py --input art.JPG --output fixed.png --add-boogie
 - The script handles very large images via `Image.MAX_IMAGE_PIXELS = None`
 - Use `--max-dim` to resize before processing for faster execution
 - Tile placement respects the diamond boundary by default for authentic composition
-- Random number generation uses a single seeded RNG for full determinism when `--tile-seed` is provided
+- Random number generation uses a single seeded RNG for full determinism (seed is required)
 - Color distance calculations use Euclidean RGB space
