@@ -11,12 +11,11 @@ Key optional flags (see --help for all):
     --max-colors N                 Number of dominant colors to extract (default: 12).
     --max-dim PX                   Resize the longest side before processing.
     --palette-strip PATH           Save a palette visualization strip.
-    --add-boogie-tiles             Paint clustered micro-tiles on light regions.
-    --add-lane-tiles               Paint micro-tile runs along detected lane edges.
     --disable-diamond-mask         Allow painting outside the detected diamond (default: masked).
-    --tile-size PX                 Tile side length for placement grid (default: 10).
-    --tile-density FLOAT           Probability of placing boogie tiles (default: 0.08).
+    --tile-seed N                  Seed for RNG (required - tile size and density are randomly generated).
     --lane-density FLOAT           Chance to start a lane run (default: 0.20).
+    
+Note: Boogie tiles and lane tiles are always enabled by default.
 """
 
 from __future__ import annotations
@@ -473,23 +472,6 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to save a small strip that visualizes the extracted palette.",
     )
     parser.add_argument(
-        "--add-boogie-tiles",
-        action="store_true",
-        help="Paint clustered micro-tiles on light background regions using the palette.",
-    )
-    parser.add_argument(
-        "--tile-size",
-        type=int,
-        default=10,
-        help="Side length of micro-tiles and scan grid (default: 10).",
-    )
-    parser.add_argument(
-        "--tile-density",
-        type=float,
-        default=0.08,
-        help="Probability of placing boogie tiles on eligible background tiles (0-1).",
-    )
-    parser.add_argument(
         "--tile-brightness-threshold",
         type=int,
         default=220,
@@ -504,13 +486,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tile-seed",
         type=int,
-        default=None,
+        required=True,
         help="Seed for deterministic tile placement (applies to both boogie and lane modes).",
-    )
-    parser.add_argument(
-        "--add-lane-tiles",
-        action="store_true",
-        help="Paint short micro-tile sequences along detected grid-like lanes.",
     )
     parser.add_argument(
         "--lane-density",
@@ -621,51 +598,51 @@ def main() -> None:
         blue=args.blue_weight,
         black=args.black_weight,
     )
-    tile_size = max(1, args.tile_size)
-    tile_density = min(1.0, max(0.0, args.tile_density))
+    # Randomly choose tile size (140-150 pixels) and density (0.38-0.50)
+    tile_size = rng.randint(140, 150)
+    tile_density = rng.uniform(0.38, 0.5)
+    print(f"Random tile size: {tile_size}px, tile density: {tile_density:.3f}")
     lane_density = min(1.0, max(0.0, args.lane_density))
     lane_run_length = max(1, args.lane_run_length)
 
-    boogie_mask = None
-    if args.add_boogie_tiles:
-        recreated, boogie_mask = add_boogie_tiles(
-            recreated,
-            palette,
-            tile_size=tile_size,
-            tile_density=tile_density,
-            brightness_threshold=args.tile_brightness_threshold,
-            gray_range=args.tile_gray_range,
-            rng=rng,
-            color_weights=weights,
-            allowed_mask=diamond_mask,
-        )
-        if args.boogie_mask:
-            args.boogie_mask.parent.mkdir(parents=True, exist_ok=True)
-            boogie_mask.save(args.boogie_mask)
-            print(f"Saved boogie mask to: {args.boogie_mask}")
+    # Always add boogie tiles (clustered micro-tiles on light regions)
+    recreated, boogie_mask = add_boogie_tiles(
+        recreated,
+        palette,
+        tile_size=tile_size,
+        tile_density=tile_density,
+        brightness_threshold=args.tile_brightness_threshold,
+        gray_range=args.tile_gray_range,
+        rng=rng,
+        color_weights=weights,
+        allowed_mask=diamond_mask,
+    )
+    if args.boogie_mask:
+        args.boogie_mask.parent.mkdir(parents=True, exist_ok=True)
+        boogie_mask.save(args.boogie_mask)
+        print(f"Saved boogie mask to: {args.boogie_mask}")
 
-    lane_mask = None
-    if args.add_lane_tiles:
-        lane_detection = compute_lane_mask(lane_detection_base)
-        if diamond_mask:
-            lane_detection = ImageChops.multiply(lane_detection, diamond_mask)
-        recreated, lane_mask = add_lane_tiles(
-            recreated,
-            palette,
-            lane_mask=lane_detection,
-            tile_size=tile_size,
-            lane_density=lane_density,
-            lane_run_length=lane_run_length,
-            rng=rng,
-            color_weights=weights,
-            brightness_threshold=args.tile_brightness_threshold,
-            gray_range=args.tile_gray_range,
-            allowed_mask=diamond_mask,
-        )
-        if args.lane_mask:
-            args.lane_mask.parent.mkdir(parents=True, exist_ok=True)
-            lane_mask.save(args.lane_mask)
-            print(f"Saved lane mask to: {args.lane_mask}")
+    # Always add lane tiles (runs along detected grid lanes)
+    lane_detection = compute_lane_mask(lane_detection_base)
+    if diamond_mask:
+        lane_detection = ImageChops.multiply(lane_detection, diamond_mask)
+    recreated, lane_mask = add_lane_tiles(
+        recreated,
+        palette,
+        lane_mask=lane_detection,
+        tile_size=tile_size,
+        lane_density=lane_density,
+        lane_run_length=lane_run_length,
+        rng=rng,
+        color_weights=weights,
+        brightness_threshold=args.tile_brightness_threshold,
+        gray_range=args.tile_gray_range,
+        allowed_mask=diamond_mask,
+    )
+    if args.lane_mask:
+        args.lane_mask.parent.mkdir(parents=True, exist_ok=True)
+        lane_mask.save(args.lane_mask)
+        print(f"Saved lane mask to: {args.lane_mask}")
 
     if args.light_mask:
         light_mask = generate_light_mask(
